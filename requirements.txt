@@ -1,0 +1,6 @@
+streamlit
+opencv-python
+opencv-contrib-python
+confluent-kafka
+ultralytics
+cvzone
