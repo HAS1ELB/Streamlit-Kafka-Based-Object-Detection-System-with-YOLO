@@ -6,10 +6,11 @@ import math
 import streamlit as st
 from ultralytics import YOLO
 import cvzone
-from confluent_kafka import Consumer, KafkaException, KafkaError
+from confluent_kafka import Consumer, KafkaException
 
 # Charger le modèle YOLO
 model = YOLO('../yolov8n.pt')
+
 
 def run_yolo_detection(output_path):
     """Effectuer la détection d'objets avec YOLO et enregistrer l'image/vidéo traitée."""
@@ -47,10 +48,18 @@ def run_yolo_detection(output_path):
         cap.release()
         out.release()
         cv2.destroyAllWindows()
+        
+        if not os.path.exists(output_file):
+            raise FileNotFoundError(f"❌ Fichier vidéo traité introuvable : {output_file}")
+        
+        print(f"✅ Fichier vidéo traité avec succès : {output_file}")
         return output_file
 
     elif output_path.endswith((".jpg", ".png")):
         img = cv2.imread(output_path)
+        if img is None:
+            raise FileNotFoundError(f"❌ Impossible de lire le fichier image : {output_path}")
+
         results = model(img, stream=True)
 
         for r in results:
@@ -63,6 +72,11 @@ def run_yolo_detection(output_path):
                 cvzone.putTextRect(img, f'{model.names[cls]} {conf}', (x1, y1 - 5), scale=1)
 
         cv2.imwrite(output_file, img)
+        
+        if not os.path.exists(output_file):
+            raise FileNotFoundError(f"❌ Fichier image traité introuvable : {output_file}")
+        
+        print(f"✅ Fichier image traité avec succès : {output_file}")
         return output_file
 
 
@@ -90,43 +104,49 @@ def start_consumer():
                 decompressed_data = gzip.decompress(compressed_data)
 
                 output_path = f"recu/{file_key}"
+                os.makedirs('recu', exist_ok=True)
                 with open(output_path, 'wb') as f:
                     f.write(decompressed_data)
-                    
+
                 if os.path.exists(output_path):
                     if 'refresh_key' not in st.session_state:
                         st.session_state['refresh_key'] = 0
                     st.session_state['refresh_key'] += 1
 
                     if output_path.endswith((".jpg", ".png")):
-                        st.image(output_path, caption="Image originale")
-                        print("image affichée avec succès")
-                        st.header("Image en cours de traitement ...")
+                        st.image(output_path, caption="🖼️ Image originale")
+                        st.header("🛠️ Traitement de l'image en cours ...")
                     elif output_path.endswith((".mp4", ".avi")):
-                        st.header("Video original")
+                        st.header("🎥 Vidéo originale")
                         with open(output_path, 'rb') as video_file:
                             st.video(video_file.read())
-                        print("Vidéo affichée avec succès")
-                        st.header("Video en cours de traitement ...")
+                        st.header("🛠️ Traitement de la vidéo en cours ...")
 
+                # Traitement avec YOLO
                 processed_file = run_yolo_detection(output_path)
 
                 if os.path.exists(processed_file):
-                    if 'refresh_key' not in st.session_state:
-                        st.session_state['refresh_key'] = 0
-                    st.session_state['refresh_key'] += 1
+                    if 'processed_files' not in st.session_state:
+                        st.session_state['processed_files'] = []
+                    st.session_state['processed_files'].append(processed_file)
 
                     if processed_file.endswith((".jpg", ".png")):
-                        st.image(processed_file, caption="Image traitée")
-                        print("image affichée avec succès")
+                        st.image(processed_file, caption="✅ Image traitée avec succès")
                     elif processed_file.endswith((".mp4", ".avi")):
                         with open(processed_file, 'rb') as video_file:
                             st.video(video_file.read())
-                        print("Vidéo affichée avec succès")
-                        
-    
+                else:
+                    st.error(f"❌ Le fichier traité est manquant : {processed_file}")
+
     except KeyboardInterrupt:
-        print("Arrêt du consommateur Kafka.")
+        print("🛑 Arrêt du consommateur Kafka.")
     finally:
         consumer.close()
+        st.cache_data.clear()
+        st.cache_resource.clear()
         st.rerun()
+
+
+if __name__ == '__main__':
+    st.title("🛠️ Kafka Consumer avec YOLO Object Detection")
+    start_consumer()
