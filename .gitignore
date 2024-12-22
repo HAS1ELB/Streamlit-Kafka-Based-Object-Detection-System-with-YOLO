@@ -3,5 +3,5 @@ temp_file
 temp_file.gz
 /recu
 /recu_traite
-config.yaml
+#config.yaml
 commands.ipynb
