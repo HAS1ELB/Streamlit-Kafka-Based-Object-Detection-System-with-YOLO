@@ -5,4 +5,4 @@ confluent-kafka
 ultralytics
 cvzone
 opencv-python-headless
-yaml
+pyyaml
