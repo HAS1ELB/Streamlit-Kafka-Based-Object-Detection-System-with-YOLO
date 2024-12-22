@@ -92,6 +92,22 @@ def start_consumer():
                 output_path = f"recu/{file_key}"
                 with open(output_path, 'wb') as f:
                     f.write(decompressed_data)
+                    
+                if os.path.exists(output_path):
+                    if 'refresh_key' not in st.session_state:
+                        st.session_state['refresh_key'] = 0
+                    st.session_state['refresh_key'] += 1
+
+                    if output_path.endswith((".jpg", ".png")):
+                        st.image(output_path, caption="Image originale")
+                        print("image affichée avec succès")
+                        st.header("Image en cours de traitement ...")
+                    elif output_path.endswith((".mp4", ".avi")):
+                        st.header("Video original")
+                        with open(output_path, 'rb') as video_file:
+                            st.video(video_file.read())
+                        print("Vidéo affichée avec succès")
+                        st.header("Video en cours de traitement ...")
 
                 processed_file = run_yolo_detection(output_path)
 
