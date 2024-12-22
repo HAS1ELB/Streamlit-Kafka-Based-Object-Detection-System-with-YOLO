@@ -1,5 +1,14 @@
 import gzip
 from confluent_kafka import Producer
+import yaml
+import os
+
+# Charger la variable depuis le fichier YAML
+with open('config.yaml', 'r') as file:
+    config = yaml.safe_load(file)
+
+# Accéder à la variable
+HOSTNAME = config['HOSTNAME']
 
 def delivery_report(err, msg):
     """Callback appelé une fois le message envoyé."""
@@ -12,7 +21,7 @@ def delivery_report(err, msg):
 def start_producer(file_key, file_path):
     # Configuration du producteur Confluent Kafka
     producer_config = {
-        'bootstrap.servers': 'localhost:9092',  # Adresse du cluster Kafka
+        'bootstrap.servers': HOSTNAME + ':9092',  # Adresse du cluster Kafka
         'client.id': 'streamlit_producer',
         'compression.type': 'gzip',  # Ajout de la compression côté Kafka
         'message.max.bytes': 104857600  # Taille maximale du message (100 Mo)
@@ -26,7 +35,7 @@ def start_producer(file_key, file_path):
         compressed_file_path = f"{file_path}.gz"
         with open(file_path, 'rb') as f_in:
             with gzip.open(compressed_file_path, 'wb') as f_out:
-                f_out.writelines(f_in)
+                f_out.writelines(f_in)              
         
         # Lecture du fichier compressé et envoi à Kafka
         with open(compressed_file_path, 'rb') as f:
@@ -42,3 +51,5 @@ def start_producer(file_key, file_path):
     
     finally:
         producer.flush()
+        os.remove(compressed_file_path)
+        os.remove(file_path)

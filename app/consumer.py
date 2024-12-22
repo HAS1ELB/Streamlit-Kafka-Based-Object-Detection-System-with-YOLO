@@ -7,16 +7,27 @@ import streamlit as st
 from ultralytics import YOLO
 import cvzone
 from confluent_kafka import Consumer, KafkaException
+import yaml
+
+# Charger la variable depuis le fichier YAML
+with open('config.yaml', 'r') as file:
+    config = yaml.safe_load(file)
+
+# Accéder à la variable
+HOSTNAME = config['HOSTNAME']
+
 
 # Charger le modèle YOLO
 model = YOLO('../yolov8n.pt')
-
+video_extensions =[".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm",".mpg", ".mpeg", ".3gp", ".ts", ".ogg", ".rm"]
+image_extensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif",".webp", ".heif", ".heic", ".raw", ".svg", ".ico", ".pdf", ".eps"]
 
 def run_yolo_detection(output_path):
     """Effectuer la détection d'objets avec YOLO et enregistrer l'image/vidéo traitée."""
-    output_file = f"recu/output_{int(time.time())}_" + os.path.basename(output_path)
+    output_file = f"recu_traite/" + os.path.basename(output_path)
 
-    if output_path.endswith((".mp4", ".avi")):
+    
+    if output_path.lower().endswith(tuple(video_extensions)):
         cap = cv2.VideoCapture(output_path)
         fourcc = cv2.VideoWriter_fourcc(*'avc1')
         fps = cap.get(cv2.CAP_PROP_FPS)
@@ -55,7 +66,7 @@ def run_yolo_detection(output_path):
         print(f"✅ Fichier vidéo traité avec succès : {output_file}")
         return output_file
 
-    elif output_path.endswith((".jpg", ".png")):
+    elif output_path.lower().endswith(tuple(image_extensions)):
         img = cv2.imread(output_path)
         if img is None:
             raise FileNotFoundError(f"❌ Impossible de lire le fichier image : {output_path}")
@@ -83,7 +94,7 @@ def run_yolo_detection(output_path):
 def start_consumer():
     """Démarrer le consommateur Kafka pour traiter les fichiers entrants."""
     consumer_config = {
-        'bootstrap.servers': 'localhost:9092',
+        'bootstrap.servers': HOSTNAME +':9092',
         'group.id': 'streamlit_consumer',
         'auto.offset.reset': 'earliest'
     }
@@ -104,7 +115,6 @@ def start_consumer():
                 decompressed_data = gzip.decompress(compressed_data)
 
                 output_path = f"recu/{file_key}"
-                os.makedirs('recu', exist_ok=True)
                 with open(output_path, 'wb') as f:
                     f.write(decompressed_data)
 
@@ -130,9 +140,9 @@ def start_consumer():
                         st.session_state['processed_files'] = []
                     st.session_state['processed_files'].append(processed_file)
 
-                    if processed_file.endswith((".jpg", ".png")):
+                    if processed_file.lower().endswith(tuple(image_extensions)):
                         st.image(processed_file, caption="✅ Image traitée avec succès")
-                    elif processed_file.endswith((".mp4", ".avi")):
+                    elif processed_file.lower().endswith(tuple(video_extensions)):
                         with open(processed_file, 'rb') as video_file:
                             st.video(video_file.read())
                 else:

@@ -4,6 +4,8 @@ from consumer import start_consumer
 import os
 
 os.makedirs("recu", exist_ok=True)
+os.makedirs("recu_traite", exist_ok=True)
+
 
 # Configuration de l'interface Streamlit
 st.title("Kafka Streamlit App: Producer & Consumer")
